@@ -429,14 +429,8 @@ DEFINE_BPF_PROG_EXT("cgroupsock/inet/create", AID_ROOT, AID_ROOT, inet_socket_cr
                     KVER(4, 14, 0), KVER_INF, false, "fs_bpf_netd_readonly", "")
 (struct bpf_sock* sk) {
     uint64_t gid_uid = bpf_get_current_uid_gid();
-    /*
-     * A given app is guaranteed to have the same app ID in all the profiles in
-     * which it is installed, and install permission is granted to app for all
-     * user at install time so we only check the appId part of a request uid at
-     * run time. See UserHandle#isSameApp for detail.
-     */
-    uint32_t appId = (gid_uid & 0xffffffff) % AID_USER_OFFSET;  // == PER_USER_RANGE == 100000
-    uint8_t* permissions = bpf_uid_permission_map_lookup_elem(&appId);
+    uint32_t uid = (gid_uid & 0xffffffff);
+    uint8_t* permissions = bpf_uid_permission_map_lookup_elem(&uid);
     if (!permissions) {
         // UID not in map. Default to just INTERNET permission.
         return 1;
