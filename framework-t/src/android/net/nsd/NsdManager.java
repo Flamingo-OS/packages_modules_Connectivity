@@ -498,10 +498,35 @@ public final class NsdManager {
         t.start();
         mHandler = new ServiceHandler(t.getLooper());
 
-        try {
-            mService = service.connect(new NsdCallbackImpl(mHandler));
-        } catch (RemoteException e) {
-            throw new RuntimeException("Failed to connect to NsdService");
+        if (android.content.pm.SpecialRuntimePermAppUtils.isInternetCompatEnabled()) {
+            // INsdManager#connect() enforces INTERNET permission
+            mService = new INsdServiceConnector() {
+                final NsdCallbackImpl callback = new NsdCallbackImpl(mHandler);
+
+                @Override public void registerService(int listenerKey, NsdServiceInfo serviceInfo) {
+                    callback.onRegisterServiceFailed(listenerKey, FAILURE_INTERNAL_ERROR);
+                }
+                @Override public void unregisterService(int listenerKey) {
+                    callback.onUnregisterServiceFailed(listenerKey, FAILURE_INTERNAL_ERROR);
+                }
+                @Override public void discoverServices(int listenerKey, NsdServiceInfo serviceInfo) {
+                    callback.onDiscoverServicesFailed(listenerKey, FAILURE_INTERNAL_ERROR);
+                }
+                @Override public void stopDiscovery(int listenerKey) {
+                    callback.onStopDiscoveryFailed(listenerKey, FAILURE_INTERNAL_ERROR);
+                }
+                @Override public void resolveService(int listenerKey, NsdServiceInfo serviceInfo) {
+                    callback.onResolveServiceFailed(listenerKey, FAILURE_INTERNAL_ERROR);
+                }
+                @Override public void startDaemon() {}
+                @Override public android.os.IBinder asBinder() { return null; }
+            };
+        } else {
+            try {
+                mService = service.connect(new NsdCallbackImpl(mHandler));
+            } catch (RemoteException e) {
+                throw new RuntimeException("Failed to connect to NsdService");
+            }
         }
 
         // Only proactively start the daemon if the target SDK < S, otherwise the internal service
